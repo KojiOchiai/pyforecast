@@ -1,0 +1,191 @@
+# coding: utf-8
+
+import numpy as np
+from numpy.linalg import solve
+from scipy.misc import comb
+
+
+def compose_matrix(A, B):
+    rA, cA = A.shape
+    rB, cB = B.shape
+    Z1 = np.zeros([rA, cB])
+    Z2 = np.zeros([rB, cA])
+    return np.concatenate([np.concatenate([A, Z1], axis=1),
+                           np.concatenate([Z2, B], axis=1)])
+
+
+def time_shift(dim, shift=1):
+    return np.concatenate([np.identity(dim - shift),
+                           np.zeros([dim - shift, shift])],
+                          axis=1)
+
+
+def expand_matrix_dim(M, dim=1):
+    r, c = M.shape
+    expanded = np.zeros([dim * r, dim * c])
+    for d in range(dim):
+        expanded[d::dim, d::dim] = M
+    return expanded
+
+
+def expand_vector_dim(M, dim=1):
+    r, c = M.shape
+    expanded = np.zeros([dim * r, c])
+    for d in range(dim):
+        expanded[d::dim, :] = M
+    return expanded
+
+
+def expand_ss_dim(ss, dim=1):
+    F = expand_matrix_dim(ss.F, dim)
+    G = expand_matrix_dim(ss.G, dim)
+    H = expand_matrix_dim(ss.H, dim)
+    Q = expand_matrix_dim(ss.Q, dim)
+    R = expand_matrix_dim(ss.R, dim)
+    state = expand_vector_dim(ss.state, dim)
+    offset = expand_vector_dim(ss.offset, dim)
+    return StateSpace(F, G, H, Q, R, offset, state)
+
+
+def predict(ss):
+    x = ss.state
+    V = ss.covariance
+
+    next_x = ss.F @ x
+    next_V = ss.F @ V @ ss.F.T + ss.G @ ss.Q @ ss.G.T
+
+    next_ss = ss.copy()
+    next_ss.state = next_x
+    next_ss.covariance = next_V
+    return next_ss
+
+
+def update(ss, d):
+    x = ss.state
+    V = ss.covariance
+    I = np.identity(V.shape[0])
+
+    # K = V @ ss.H.T @ inv(ss.H @ V @ ss.H.T + ss.R)
+    K = V @ solve((ss.H @ V @ ss.H.T + ss.R).T, (ss.H.T).T).T
+    next_x = x + K @ (d - ss.H @ x)
+    next_V = (I - K @ ss.H) @ V
+
+    next_ss = ss.copy()
+    next_ss.state = next_x
+    next_ss.covariance = next_V
+    return next_ss
+
+
+def observe(ss, covariance=True):
+    mean = ss.H @ ss.state
+    if not covariance:
+        return mean
+    else:
+        V = ss.covariance
+        cov = ss.H @ V @ ss.H.T + ss.R
+        return mean, cov
+
+
+class StateSpace():
+    # state space
+    #
+    # F: transition matrix
+    # G: noise transition matrix
+    # H: observation matrix
+    # Q: transition covariance
+    # R: observation covariance
+    def __init__(self, F, G, H, Q=None, R=None,
+                 offset=None, initial_state=None, initial_covariance=None):
+        n_dim_state = F.shape[0]
+        n_dim_observe = H.shape[0]
+
+        if Q is None:
+            Q = np.identity(G.shape[1])
+
+        if R is None:
+            R = np.identity(n_dim_observe)
+
+        if offset is None:
+            offset = np.zeros([n_dim_observe, 1])
+
+        if initial_state is None:
+            initial_state = np.zeros([n_dim_state, 1])
+
+        if initial_covariance is None:
+            initial_covariance = np.identity(n_dim_state)
+
+        self.F = F
+        self.G = G
+        self.H = H
+        self.Q = Q
+        self.R = R
+        self.state = initial_state
+        self.covariance = initial_covariance
+        self.offset = offset
+        self.n_dim_state = n_dim_state
+        self.n_dim_observe = n_dim_observe
+
+    def compose(self, ss):
+        F = compose_matrix(self.F, ss.F)
+        G = compose_matrix(self.G, ss.G)
+        H = np.concatenate([self.H, ss.H], axis=1)
+        Q = compose_matrix(self.Q, ss.Q)
+        R = (self.R + ss.R) / 2
+        offset = np.max(np.concatenate([self.offset, ss.offset], axis=1),
+                        axis=1)[:, None]
+        state = np.concatenate([self.state, ss.state])
+        return StateSpace(F, G, H, Q, R, offset, state)
+
+    def __add__(self, other):
+        return self.compose(other)
+
+    def copy(self):
+        F = self.F.copy()
+        G = self.G.copy()
+        H = self.H.copy()
+        Q = self.Q.copy()
+        R = self.R.copy()
+        offset = self.offset.copy()
+        state = self.state.copy()
+        return StateSpace(F, G, H, Q, R, offset, state)
+
+
+class Trend(StateSpace):
+    def __init__(self, k, dim=1):
+        c = np.array([(-1) ** ((i + 1) % 2) * comb(k, i)
+                      for i in range(1, k + 1)])[None, :]
+        F = np.concatenate([c, time_shift(k)])
+        G = np.zeros([k, 1])
+        G[0, 0] = 1
+        H = np.zeros([1, k])
+        H[0, 0] = 1
+        super().__init__(F, G, H)
+
+
+class Period(StateSpace):
+    def __init__(self, period):
+        c = np.array([-1 for i in range(1, period + 1)])[None, :]
+        F = np.concatenate([c, time_shift(period)])
+        G = np.zeros([period, 1])
+        G[0, 0] = 1
+        H = np.zeros([1, period])
+        H[0, 0] = 1
+        super().__init__(F, G, H)
+
+
+class Filter():
+    def __init__(self, statespace):
+        self.statespace = statespace.copy()
+
+    def __call__(self, d):
+        self.statespace = update(predict(self.statespace), d)
+        return self.statespace
+
+
+class Predictor():
+    def __init__(self, statespace):
+        self.statespace = statespace.copy()
+
+    def __call__(self):
+        self.statespace = predict(self.statespace)
+        return self.statespace
