@@ -43,12 +43,19 @@ def observe(ss, covariance=True):
         return mean, cov
 
 
+def fillna(ss, d):
+    d_ = d.copy()
+    d_[np.isnan(d)] = observe(ss, covariance=False)[np.isnan(d)]
+    return d_
+
+
 class Filter():
     def __init__(self, statespace):
         self.statespace = statespace.copy()
 
     def __call__(self, d):
-        self.statespace = update(predict(self.statespace), d)
+        d_ = fillna(self.statespace, d)
+        self.statespace = update(predict(self.statespace), d_)
         return self.statespace
 
 
