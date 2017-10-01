@@ -3,7 +3,6 @@ from pyforecast.statespace import (expand_ss_dim,
                                    Trend,
                                    Period)
 from pyforecast.operation import (predict,
-                                  postdict,
                                   update,
                                   observe,
                                   Filter,
