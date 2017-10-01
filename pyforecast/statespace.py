@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import types
 import numpy as np
 from scipy.misc import comb
 
@@ -12,25 +13,29 @@ class StateSpace():
     # H: observation matrix
     # Q: transition covariance
     # R: observation covariance
-    def __init__(self, F, G, H, Q=None, R=None,
-                 offset=None, initial_state=None, initial_covariance=None):
+    def __init__(self, F, G, H, Q=np.ones, R=np.ones, offset=np.zeros,
+                 initial_state=np.zeros, initial_covariance=np.ones):
         n_dim_state = F.shape[0]
         n_dim_observe = H.shape[0]
 
-        if Q is None:
-            Q = np.identity(G.shape[1])
+        def isfunction(x):
+            return (isinstance(x, types.FunctionType) or
+                    isinstance(x, types.BuiltinFunctionType))
 
-        if R is None:
-            R = np.identity(n_dim_observe)
+        if isfunction(Q):
+            Q = np.diag(Q(G.shape[1]))
 
-        if offset is None:
-            offset = np.zeros([n_dim_observe, 1])
+        if isfunction(R):
+            R = np.diag(R(n_dim_observe))
 
-        if initial_state is None:
-            initial_state = np.zeros([n_dim_state, 1])
+        if isfunction(offset):
+            offset = offset(n_dim_observe)[:, None]
 
-        if initial_covariance is None:
-            initial_covariance = np.identity(n_dim_state)
+        if isfunction(initial_state):
+            initial_state = initial_state(n_dim_state)[:, None]
+
+        if isfunction(initial_covariance):
+            initial_covariance = np.diag(initial_covariance(n_dim_state))
 
         self.F = F
         self.G = G
