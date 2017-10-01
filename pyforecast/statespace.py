@@ -4,48 +4,6 @@ import numpy as np
 from scipy.misc import comb
 
 
-def compose_matrix(A, B):
-    rA, cA = A.shape
-    rB, cB = B.shape
-    Z1 = np.zeros([rA, cB])
-    Z2 = np.zeros([rB, cA])
-    return np.concatenate([np.concatenate([A, Z1], axis=1),
-                           np.concatenate([Z2, B], axis=1)])
-
-
-def time_shift(dim, shift=1):
-    return np.concatenate([np.identity(dim - shift),
-                           np.zeros([dim - shift, shift])],
-                          axis=1)
-
-
-def expand_matrix_dim(M, dim=1):
-    r, c = M.shape
-    expanded = np.zeros([dim * r, dim * c])
-    for d in range(dim):
-        expanded[d::dim, d::dim] = M
-    return expanded
-
-
-def expand_vector_dim(M, dim=1):
-    r, c = M.shape
-    expanded = np.zeros([dim * r, c])
-    for d in range(dim):
-        expanded[d::dim, :] = M
-    return expanded
-
-
-def expand_ss_dim(ss, dim=1):
-    F = expand_matrix_dim(ss.F, dim)
-    G = expand_matrix_dim(ss.G, dim)
-    H = expand_matrix_dim(ss.H, dim)
-    Q = expand_matrix_dim(ss.Q, dim)
-    R = expand_matrix_dim(ss.R, dim)
-    state = expand_vector_dim(ss.state, dim)
-    offset = expand_vector_dim(ss.offset, dim)
-    return StateSpace(F, G, H, Q, R, offset, state)
-
-
 class StateSpace():
     # state space
     #
@@ -131,3 +89,45 @@ class Period(StateSpace):
         H = np.zeros([1, period])
         H[0, 0] = 1
         super().__init__(F, G, H)
+
+
+def compose_matrix(A, B):
+    rA, cA = A.shape
+    rB, cB = B.shape
+    Z1 = np.zeros([rA, cB])
+    Z2 = np.zeros([rB, cA])
+    return np.concatenate([np.concatenate([A, Z1], axis=1),
+                           np.concatenate([Z2, B], axis=1)])
+
+
+def time_shift(dim, shift=1):
+    return np.concatenate([np.identity(dim - shift),
+                           np.zeros([dim - shift, shift])],
+                          axis=1)
+
+
+def expand_matrix_dim(M, dim=1):
+    r, c = M.shape
+    expanded = np.zeros([dim * r, dim * c])
+    for d in range(dim):
+        expanded[d::dim, d::dim] = M
+    return expanded
+
+
+def expand_vector_dim(M, dim=1):
+    r, c = M.shape
+    expanded = np.zeros([dim * r, c])
+    for d in range(dim):
+        expanded[d::dim, :] = M
+    return expanded
+
+
+def expand_ss_dim(ss, dim=1):
+    F = expand_matrix_dim(ss.F, dim)
+    G = expand_matrix_dim(ss.G, dim)
+    H = expand_matrix_dim(ss.H, dim)
+    Q = expand_matrix_dim(ss.Q, dim)
+    R = expand_matrix_dim(ss.R, dim)
+    state = expand_vector_dim(ss.state, dim)
+    offset = expand_vector_dim(ss.offset, dim)
+    return StateSpace(F, G, H, Q, R, offset, state)
