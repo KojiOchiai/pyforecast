@@ -59,10 +59,12 @@ def observe(ss, covariance=True):
 
 
 def row_vectorize(d):
-    if len(d.shape) == 2:
-        return d
+    if len(d.shape) == 0:
+        return np.array([[d]])
     elif len(d.shape) == 1:
         return d[:, None]
+    elif len(d.shape) == 2:
+        return d
 
 
 def fillna(ss, d):
@@ -76,9 +78,13 @@ class Filter():
         self.statespace = statespace.copy()
 
     def __call__(self, d):
-        d_ = fillna(self.statespace, row_vectorize(d))
-        self.statespace = update(predict(self.statespace), d_)
-        return self.statespace
+        if np.isnan(d).all():
+            self.statespace = predict(self.statespace)
+            return self.statespace
+        else:
+            d_ = fillna(self.statespace, row_vectorize(d))
+            self.statespace = update(predict(self.statespace), d_)
+            return self.statespace
 
 
 class Predictor():
