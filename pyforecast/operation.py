@@ -17,20 +17,6 @@ def predict(ss):
     return next_ss
 
 
-def postdict(ss, xf, Vf):
-    x = ss.state
-    V = ss.covariance
-
-    A = V @ solve(V.T, ss.F.T).T
-    prev_x = x + A @ (xf - x)
-    prev_V = V + A @ (Vf - V) @ A.T
-
-    prev_ss = ss.copy()
-    prev_ss.state = prev_x
-    prev_ss.covariance = prev_V
-    return prev_ss
-
-
 def update(ss, d):
     x = ss.state
     y = d - ss.offset
