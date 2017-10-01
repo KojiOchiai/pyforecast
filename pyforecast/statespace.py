@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import numpy as np
-from numpy.linalg import solve
 from scipy.misc import comb
 
 
@@ -45,45 +44,6 @@ def expand_ss_dim(ss, dim=1):
     state = expand_vector_dim(ss.state, dim)
     offset = expand_vector_dim(ss.offset, dim)
     return StateSpace(F, G, H, Q, R, offset, state)
-
-
-def predict(ss):
-    x = ss.state
-    V = ss.covariance
-
-    next_x = ss.F @ x
-    next_V = ss.F @ V @ ss.F.T + ss.G @ ss.Q @ ss.G.T
-
-    next_ss = ss.copy()
-    next_ss.state = next_x
-    next_ss.covariance = next_V
-    return next_ss
-
-
-def update(ss, d):
-    x = ss.state
-    V = ss.covariance
-    I = np.identity(V.shape[0])
-
-    # K = V @ ss.H.T @ inv(ss.H @ V @ ss.H.T + ss.R)
-    K = V @ solve((ss.H @ V @ ss.H.T + ss.R).T, (ss.H.T).T).T
-    next_x = x + K @ (d - ss.H @ x)
-    next_V = (I - K @ ss.H) @ V
-
-    next_ss = ss.copy()
-    next_ss.state = next_x
-    next_ss.covariance = next_V
-    return next_ss
-
-
-def observe(ss, covariance=True):
-    mean = ss.H @ ss.state
-    if not covariance:
-        return mean
-    else:
-        V = ss.covariance
-        cov = ss.H @ V @ ss.H.T + ss.R
-        return mean, cov
 
 
 class StateSpace():
@@ -171,21 +131,3 @@ class Period(StateSpace):
         H = np.zeros([1, period])
         H[0, 0] = 1
         super().__init__(F, G, H)
-
-
-class Filter():
-    def __init__(self, statespace):
-        self.statespace = statespace.copy()
-
-    def __call__(self, d):
-        self.statespace = update(predict(self.statespace), d)
-        return self.statespace
-
-
-class Predictor():
-    def __init__(self, statespace):
-        self.statespace = statespace.copy()
-
-    def __call__(self):
-        self.statespace = predict(self.statespace)
-        return self.statespace
