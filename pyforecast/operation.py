@@ -19,12 +19,13 @@ def predict(ss):
 
 def update(ss, d):
     x = ss.state
+    y = d - ss.offset
     V = ss.covariance
     I = np.identity(V.shape[0])
 
     # K = V @ ss.H.T @ inv(ss.H @ V @ ss.H.T + ss.R)
     K = V @ solve((ss.H @ V @ ss.H.T + ss.R).T, (ss.H.T).T).T
-    next_x = x + K @ (d - ss.H @ x)
+    next_x = x + K @ (y - ss.H @ x)
     next_V = (I - K @ ss.H) @ V
 
     next_ss = ss.copy()
@@ -34,7 +35,7 @@ def update(ss, d):
 
 
 def observe(ss, covariance=True):
-    mean = ss.H @ ss.state
+    mean = ss.H @ ss.state + ss.offset
     if not covariance:
         return mean
     else:
