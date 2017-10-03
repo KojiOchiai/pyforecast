@@ -2,10 +2,12 @@
 
 import types
 import numpy as np
+from numpy.linalg import solve
 from scipy.misc import comb
+from pyforecast.system import AbstractSystem
 
 
-class StateSpace():
+class StateSpace(AbstractSystem):
     # state space
     #
     # F: transition matrix
@@ -71,6 +73,43 @@ class StateSpace():
         offset = self.offset.copy()
         state = self.state.copy()
         return StateSpace(F, G, H, Q, R, offset, state)
+
+    def predict(self):
+        x = self.state
+        V = self.covariance
+
+        next_x = self.F @ x
+        next_V = self.F @ V @ self.F.T + self.G @ self.Q @ self.G.T
+
+        next_ss = self.copy()
+        next_ss.state = next_x
+        next_ss.covariance = next_V
+        return next_ss
+
+    def update(self, d):
+        x = self.state
+        y = d - self.offset
+        V = self.covariance
+        I = np.identity(V.shape[0])
+
+        # K = V @ self.H.T @ inv(self.H @ V @ self.H.T + self.R)
+        K = V @ solve((self.H @ V @ self.H.T + self.R).T, (self.H.T).T).T
+        next_x = x + K @ (y - self.H @ x)
+        next_V = (I - K @ self.H) @ V
+
+        next_ss = self.copy()
+        next_ss.state = next_x
+        next_ss.covariance = next_V
+        return next_ss
+
+    def observe(self, covariance=True):
+        mean = self.H @ self.state + self.offset
+        if not covariance:
+            return mean
+        else:
+            V = self.covariance
+            cov = self.H @ V @ self.H.T + self.R
+            return mean, cov
 
 
 class Trend(StateSpace):
