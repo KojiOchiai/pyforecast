@@ -4,7 +4,7 @@ import types
 import numpy as np
 from numpy.linalg import solve
 from scipy.misc import comb
-from pyforecast.system import AbstractSystem
+from .system import AbstractSystem
 
 
 class StateSpace(AbstractSystem):
@@ -17,6 +17,29 @@ class StateSpace(AbstractSystem):
     # R: observation covariance
     def __init__(self, F, G, H, Q=np.ones, R=np.ones, offset=np.zeros,
                  initial_state=np.zeros, initial_covariance=np.ones):
+
+        params = self.sample_params(
+            F, G, H, Q, R, offset,
+            initial_state, initial_covariance)
+
+        self.set_params(params)
+
+    def set_params(self, params):
+        self.F = params['F']
+        self.G = params['G']
+        self.H = params['H']
+        self.Q = params['Q']
+        self.R = params['R']
+        self.state = params['state']
+        self.covariance = params['covariance']
+        self.offset = params['offset']
+        self.n_dim_state = params['n_dim_state']
+        self.n_dim_observe = params['n_dim_observe']
+
+    def sample_params(self, F, G, H, Q=np.ones, R=np.ones,
+                      offset=np.zeros,
+                      initial_state=np.zeros,
+                      initial_covariance=np.ones):
         n_dim_state = F.shape[0]
         n_dim_observe = H.shape[0]
 
@@ -39,16 +62,12 @@ class StateSpace(AbstractSystem):
         if isfunction(initial_covariance):
             initial_covariance = np.diag(initial_covariance(n_dim_state))
 
-        self.F = F
-        self.G = G
-        self.H = H
-        self.Q = Q
-        self.R = R
-        self.state = initial_state
-        self.covariance = initial_covariance
-        self.offset = offset
-        self.n_dim_state = n_dim_state
-        self.n_dim_observe = n_dim_observe
+        return {'F': F, 'G': G, 'H': H, 'Q': Q, 'R': R,
+                'offset': offset,
+                'state': initial_state,
+                'covariance': initial_covariance,
+                'n_dim_state': n_dim_state,
+                'n_dim_observe': n_dim_observe}
 
     def compose(self, ss):
         F = compose_matrix(self.F, ss.F)
@@ -64,6 +83,23 @@ class StateSpace(AbstractSystem):
     def __add__(self, other):
         return self.compose(other)
 
+    def get_params(self):
+        return {'F': self.F, 'G': self.G, 'H': self.H,
+                'Q': self.Q, 'R': self.R,
+                'offset': self.offset,
+                'state': self.state,
+                'covariance': self.covariance,
+                'n_dim_state': self.n_dim_state,
+                'n_dim_observe': self.n_dim_observe}
+
+    def save(self, filename):
+        params = self.get_params()
+        np.save(filename, params)
+
+    def load(self, filename):
+        params = np.load(filename)[()]
+        self.set_params(params)
+
     def copy(self):
         F = self.F.copy()
         G = self.G.copy()
@@ -74,19 +110,24 @@ class StateSpace(AbstractSystem):
         state = self.state.copy()
         return StateSpace(F, G, H, Q, R, offset, state)
 
-    def predict(self):
+    def predict(self, pure=False):
         x = self.state
         V = self.covariance
 
         next_x = self.F @ x
         next_V = self.F @ V @ self.F.T + self.G @ self.Q @ self.G.T
 
-        next_ss = self.copy()
-        next_ss.state = next_x
-        next_ss.covariance = next_V
-        return next_ss
+        if pure:
+            next_ss = self.copy()
+            next_ss.state = next_x
+            next_ss.covariance = next_V
+            return next_ss
+        else:
+            self.state = next_x
+            self.covariance = next_V
+            return None
 
-    def update(self, d):
+    def update(self, d, pure=False):
         x = self.state
         y = d - self.offset
         V = self.covariance
@@ -97,10 +138,15 @@ class StateSpace(AbstractSystem):
         next_x = x + K @ (y - self.H @ x)
         next_V = (I - K @ self.H) @ V
 
-        next_ss = self.copy()
-        next_ss.state = next_x
-        next_ss.covariance = next_V
-        return next_ss
+        if pure:
+            next_ss = self.copy()
+            next_ss.state = next_x
+            next_ss.covariance = next_V
+            return next_ss
+        else:
+            self.state = next_x
+            self.covariance = next_V
+            return None
 
     def observe(self, covariance=True):
         mean = self.H @ self.state + self.offset

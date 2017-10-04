@@ -3,12 +3,12 @@
 import numpy as np
 
 
-def predict(ss):
-    return ss.predict()
+def predict(ss, pure=True):
+    return ss.predict(pure)
 
 
-def update(ss, d):
-    return ss.update(d)
+def update(ss, d, pure=True):
+    return ss.update(d, pure)
 
 
 def observe(ss, covariance=True):
@@ -35,12 +35,12 @@ class Filter():
         self.statespace = statespace.copy()
 
     def __call__(self, d):
+        self.statespace.predict()
         if np.isnan(d).all():
-            self.statespace = predict(self.statespace)
             return self.statespace
         else:
             d_ = fillna(self.statespace, row_vectorize(d))
-            self.statespace = update(predict(self.statespace), d_)
+            self.statespace.update(d_)
             return self.statespace
 
 
@@ -49,5 +49,5 @@ class Predictor():
         self.statespace = statespace.copy()
 
     def __call__(self):
-        self.statespace = predict(self.statespace)
+        self.statespace.predict()
         return self.statespace
