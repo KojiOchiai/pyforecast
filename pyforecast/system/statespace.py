@@ -172,11 +172,12 @@ class Trend(StateSpace):
 
 class Period(StateSpace):
     def __init__(self, period):
-        c = np.array([-1 for i in range(1, period + 1)])[None, :]
-        F = np.concatenate([c, time_shift(period)])
-        G = np.zeros([period, 1])
+        p = period - 1
+        c = np.array([-1 for i in range(0, p)])[None, :]
+        F = np.concatenate([c, time_shift(p)])
+        G = np.zeros([p, 1])
         G[0, 0] = 1
-        H = np.zeros([1, period])
+        H = np.zeros([1, p])
         H[0, 0] = 1
         super().__init__(F, G, H)
 
