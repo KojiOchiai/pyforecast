@@ -12,7 +12,7 @@ def update(ss, d, pure=True):
 
 
 def observe(ss, covariance=True):
-    return ss.observe(covariance)
+    return ss.observe(covariance=covariance)
 
 
 def row_vectorize(d):
@@ -31,23 +31,23 @@ def fillna(ss, d):
 
 
 class Filter():
-    def __init__(self, statespace):
-        self.statespace = statespace.copy()
+    def __init__(self, system):
+        self.system = system.copy()
 
     def __call__(self, d):
-        self.statespace.predict()
+        self.system.predict()
         if np.isnan(d).all():
-            return self.statespace
+            return self.system
         else:
-            d_ = fillna(self.statespace, row_vectorize(d))
-            self.statespace.update(d_)
-            return self.statespace
+            d_ = fillna(self.system, row_vectorize(d))
+            self.system.update(d_)
+            return self.system
 
 
 class Predictor():
-    def __init__(self, statespace):
-        self.statespace = statespace.copy()
+    def __init__(self, system):
+        self.system = system.copy()
 
     def __call__(self):
-        self.statespace.predict()
-        return self.statespace
+        self.system.predict()
+        return self.system

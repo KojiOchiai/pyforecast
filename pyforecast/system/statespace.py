@@ -8,13 +8,15 @@ from .system import AbstractSystem
 
 
 class StateSpace(AbstractSystem):
-    # state space
-    #
-    # F: transition matrix
-    # G: noise transition matrix
-    # H: observation matrix
-    # Q: transition covariance
-    # R: observation covariance
+    '''state space
+
+    F: transition matrix
+    G: noise transition matrix
+    H: observation matrix
+    Q: transition covariance
+    R: observation covariance
+    '''
+
     def __init__(self, F, G, H, Q=np.ones, R=np.ones, offset=np.zeros,
                  initial_state=np.zeros, initial_covariance=np.ones):
 

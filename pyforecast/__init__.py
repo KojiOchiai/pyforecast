@@ -12,7 +12,15 @@ from .system.statespace import (expand_ss_dim,
                                 Trend,
                                 Period)
 
+from .system.nonlinear import (NonLinear)
+
+
+from .distribution.distribution import (Distribution)
+
+
 from .distribution.distributions import (Gaussian,
                                          Uniform,
+                                         Poisson,
                                          gaussian,
+                                         poisson,
                                          uniform)
